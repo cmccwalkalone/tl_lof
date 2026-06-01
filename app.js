@@ -89,6 +89,9 @@ function toggleLogPanel() {
   }
 }
 
+// 立即设置 logPanelVisible 为 true
+logPanelVisible = true;
+
 function getAllLogs() {
   return logMessages.map(l => `[${l.type.toUpperCase()}] [${l.timestamp}] ${l.message}`).join('\n');
 }
