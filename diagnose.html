@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>诊断工具</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+    h1 { color: #569cd6; }
+    .success { color: #4ec9b0; }
+    .error { color: #f44747; }
+    .warning { color: #dcdcaa; }
+    .info { color: #9cdcfe; }
+    pre { background: #252526; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    button { padding: 10px 20px; background: #0e639c; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 10px 0; }
+    button:hover { background: #1177bb; }
+    #status { margin: 20px 0; padding: 15px; background: #2d2d30; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>🔍 诊断工具</h1>
+
+  <button onclick="runDiagnostics()">运行诊断</button>
+
+  <div id="status">
+    <p class="info">点击按钮开始诊断...</p>
+  </div>
+
+  <h2 class="info">控制台输出:</h2>
+  <pre id="console"></pre>
+
+  <script>
+    const logDiv = document.getElementById('console');
+    const statusDiv = document.getElementById('status');
+
+    function log(message, type = 'info') {
+      const p = document.createElement('p');
+      p.className = type;
+      p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(p);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(message);
+    }
+
+    async function runDiagnostics() {
+      logDiv.innerHTML = '';
+      statusDiv.innerHTML = '<p class="warning">正在诊断...</p>';
+
+      log('开始诊断测试...', 'info');
+
+      const CORS_PROXIES = [
+        'https://api.allorigins.win/raw?url=',
+        'https://corsproxy.io/?',
+        ''
+      ];
+
+      const testUrls = [
+        { name: '腾讯股票API', url: 'https://qt.gtimg.cn/q=sh501312' },
+        { name: '天天基金API', url: 'https://fundgz.1234567.com.cn/js/501312.js' },
+        { name: '东财API', url: 'https://fund.eastmoney.com/pingzhongdata/501312.js' }
+      ];
+
+      for (const test of testUrls) {
+        log(`\n测试 ${test.name}...`, 'info');
+        let success = false;
+
+        for (let i = 0; i < CORS_PROXIES.length; i++) {
+          const proxy = CORS_PROXIES[i];
+          const proxyName = proxy === '' ? '直接访问' : (proxy.includes('allorigins') ? 'allorigins' : 'corsproxy');
+
+          try {
+            log(`  尝试 ${proxyName}...`, 'info');
+            const targetUrl = proxy === '' ? test.url : (i === 1 ? proxy + encodeURIComponent(test.url) : proxy + encodeURIComponent(test.url));
+            const response = await fetch(targetUrl, { timeout: 5000 });
+
+            if (response.ok) {
+              const text = await response.text();
+              log(`  ✅ ${proxyName} 成功! (${text.length} bytes)`, 'success');
+              success = true;
+              break;
+            } else {
+              log(`  ❌ ${proxyName} 失败: HTTP ${response.status}`, 'error');
+            }
+          } catch (e) {
+            log(`  ❌ ${proxyName} 错误: ${e.message}`, 'error');
+          }
+        }
+
+        if (!success) {
+          log(`  ❌ 所有方法都失败`, 'error');
+        }
+      }
+
+      log('\n诊断完成!', 'success');
+      statusDiv.innerHTML = '<p class="success">诊断完成! 请查看上面的结果。</p>';
+    }
+
+    window.onload = function() {
+      log('诊断工具已加载', 'info');
+    };
+  </script>
+</body>
+</html>

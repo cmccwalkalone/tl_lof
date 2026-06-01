@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>allorigins测试</title>
+  <style>
+    body { font-family: Arial; padding: 20px; max-width: 900px; margin: 0 auto; }
+    .test-item { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+    .success { background: #d4edda; border-color: #28a745; }
+    .error { background: #f8d7da; border-color: #dc3545; }
+    .pending { background: #fff3cd; border-color: #ffc107; }
+    h1 { color: #333; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+    button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    .status { font-weight: bold; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>🔍 allorigins.win CORS代理测试</h1>
+
+  <div class="test-item pending" id="test1">
+    <h3>1. 测试腾讯股票API（基金价格）</h3>
+    <p>原始URL: https://qt.gtimg.cn/q=sh501312</p>
+    <p>代理URL: https://api.allorigins.win/raw?url=https%3A%2F%2Fqt.gtimg.cn%2Fq%3Dsh501312</p>
+    <button onclick="testTencent()">开始测试</button>
+    <pre id="result1">等待测试...</pre>
+  </div>
+
+  <div class="test-item pending" id="test2">
+    <h3>2. 测试天天基金API（基金净值）</h3>
+    <p>原始URL: https://fundgz.1234567.com.cn/js/501312.js</p>
+    <p>代理URL: https://api.allorigins.win/raw?url=https%3A%2F%2Ffundgz.1234567.com.cn%2Fjs%2F501312.js</p>
+    <button onclick="testTiantian()">开始测试</button>
+    <pre id="result2">等待测试...</pre>
+  </div>
+
+  <div class="test-item pending" id="test3">
+    <h3>3. 测试完整基金数据（价格+净值）</h3>
+    <button onclick="testFull()">开始测试</button>
+    <pre id="result3">等待测试...</pre>
+  </div>
+
+  <script>
+    async function testTencent() {
+      const item = document.getElementById('test1');
+      const result = document.getElementById('result1');
+      item.className = 'test-item pending';
+      result.textContent = '正在测试...';
+
+      try {
+        const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://qt.gtimg.cn/q=sh501312');
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+
+        const text = await response.text();
+        item.className = 'test-item success';
+        result.textContent = '✅ 成功!\n\n响应内容:\n' + text;
+      } catch (e) {
+        item.className = 'test-item error';
+        result.textContent = '❌ 失败: ' + e.message + '\n\n这说明 allorigins.win 可能无法访问腾讯API';
+      }
+    }
+
+    async function testTiantian() {
+      const item = document.getElementById('test2');
+      const result = document.getElementById('result2');
+      item.className = 'test-item pending';
+      result.textContent = '正在测试...';
+
+      try {
+        const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://fundgz.1234567.com.cn/js/501312.js?rt=' + Date.now());
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+
+        const text = await response.text();
+        item.className = 'test-item success';
+        result.textContent = '✅ 成功!\n\n响应内容:\n' + text;
+      } catch (e) {
+        item.className = 'test-item error';
+        result.textContent = '❌ 失败: ' + e.message + '\n\n这说明 allorigins.win 可能无法访问天天基金API';
+      }
+    }
+
+    async function testFull() {
+      const item = document.getElementById('test3');
+      const result = document.getElementById('result3');
+      item.className = 'test-item pending';
+      result.textContent = '正在测试完整流程...\n这可能需要10-20秒';
+
+      try {
+        const code = '501312';
+        const marketCode = 'sh' + code;
+
+        // 测试价格API
+        const priceUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://qt.gtimg.cn/q=' + marketCode);
+        const priceRes = await fetch(priceUrl);
+
+        if (!priceRes.ok) {
+          throw new Error('价格API失败: HTTP ' + priceRes.status);
+        }
+
+        const priceText = await priceRes.text();
+
+        // 解析价格
+        const priceMatch = priceText.match(/=\"(.*)\"/);
+        if (!priceMatch || !priceMatch[1]) {
+          throw new Error('无法解析价格数据');
+        }
+
+        const priceParts = priceMatch[1].split('~');
+        const price = parseFloat(priceParts[3]);
+        const name = priceParts[1];
+
+        // 测试净值API
+        const navUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://fundgz.1234567.com.cn/js/' + code + '.js?rt=' + Date.now());
+        const navRes = await fetch(navUrl);
+
+        if (!navRes.ok) {
+          throw new Error('净值API失败: HTTP ' + navRes.status);
+        }
+
+        const navText = await navRes.text();
+
+        // 解析净值
+        const navMatch = navText.match(/jsonpgz\(([\s\S]*)\);?/);
+        if (!navMatch || !navMatch[1]) {
+          throw new Error('无法解析净值数据');
+        }
+
+        const navData = JSON.parse(navMatch[1]);
+        const nav = parseFloat(navData.dwjz);
+
+        // 计算溢价率
+        const premium = ((price - nav) / nav * 100).toFixed(2);
+
+        item.className = 'test-item success';
+        result.textContent = '✅ 完全成功!\n\n' +
+          '基金代码: ' + code + '\n' +
+          '基金名称: ' + name + '\n' +
+          '基金价格: ' + price + '\n' +
+          '基金净值: ' + nav + '\n' +
+          '溢价率: ' + (premium >= 0 ? '+' : '') + premium + '%\n\n' +
+          '所有API都正常工作!';
+      } catch (e) {
+        item.className = 'test-item error';
+        result.textContent = '❌ 失败: ' + e.message + '\n\n' +
+          '这说明 allorigins.win 代理可能无法正常工作。\n' +
+          '可能的原因:\n' +
+          '1. API域名被防火墙阻挡\n' +
+          '2. 代理服务临时不可用\n' +
+          '3. 需要使用其他CORS代理方案';
+      }
+    }
+
+    // 页面加载时自动运行完整测试
+    window.onload = function() {
+      console.log('页面加载完成，开始自动测试...');
+      setTimeout(testFull, 2000);
+    };
+  </script>
+</body>
+</html>

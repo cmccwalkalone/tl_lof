@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="LOF基金套利工具 - 实时查看基金溢价率，支持多个分类">
+  <meta name="theme-color" content="#007AFF">
+  <title>LOF基金套利</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-left">
+        <h1 class="title">LOF基金套利</h1>
+        <div class="update-time" id="updateTime">更新时间: --</div>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" id="refreshBtn" title="刷新数据" aria-label="刷新数据">
+          <span class="icon" id="refreshIcon" aria-hidden="true">↻</span>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="基金设置" aria-label="打开设置">
+          <span class="icon" aria-hidden="true">⚙</span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabs" id="categoryTabs" role="tablist" aria-label="基金分类">
+    </nav>
+
+    <main class="content" id="fundTable" role="tabpanel">
+      <div class="table-header" role="row">
+        <div class="th code" role="columnheader">代码</div>
+        <div class="th name" role="columnheader">名称</div>
+        <div class="th nav" role="columnheader">净值</div>
+        <div class="th price" role="columnheader">价格</div>
+        <div class="th premium" role="columnheader">溢价率</div>
+        <div class="th status" role="columnheader">状态</div>
+        <div class="th limit" role="columnheader">限额</div>
+      </div>
+      <div class="table-body" id="tableBody" role="rowgroup">
+        <div class="loading-state" id="loadingState" role="status">
+          <div class="spinner" aria-hidden="true"></div>
+          <div class="loading-text">加载中...</div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="legend" role="list" aria-label="图例说明">
+        <div class="legend-item" role="listitem">
+          <div class="dot up" aria-hidden="true"></div>
+          <span>溢价</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <div class="dot down" aria-hidden="true"></div>
+          <span>折价</span>
+        </div>
+      </div>
+      <p class="tip">点击基金查看详情</p>
+    </footer>
+  </div>
+
+  <dialog id="detailModal" class="modal" aria-labelledby="detailName" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="detailName">基金名称</h2>
+        <button class="close-btn" id="closeDetail" aria-label="关闭详情">×</button>
+      </div>
+      <div class="modal-body" id="detailBody">
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="settingsModal" class="modal" aria-labelledby="settingsTitle" aria-modal="true">
+    <div class="modal-content settings-modal">
+      <div class="modal-header">
+        <h2 id="settingsTitle">基金设置</h2>
+        <button class="close-btn" id="closeSettings" aria-label="关闭设置">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-tabs" id="settingsTabs" role="tablist">
+        </div>
+        <div class="settings-content">
+          <div class="add-fund">
+            <label for="newFundCode" class="sr-only">输入基金代码</label>
+            <input type="text" id="newFundCode" placeholder="输入基金代码" maxlength="6" aria-label="基金代码">
+            <button id="addFundBtn" type="button">添加</button>
+          </div>
+          <div class="fund-list" id="fundList" role="list">
+          </div>
+          <button class="reset-btn" id="resetBtn" type="button">恢复默认</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="alert" aria-live="polite">
+    <span id="toastMessage"></span>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Netlify API 测试</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      padding: 30px;
+    }
+    .test-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .test-card:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    .test-card.pending {
+      border-color: #ffc107;
+      background: #fffbf0;
+    }
+    .test-card.testing {
+      border-color: #2196f3;
+      background: #f0f7ff;
+    }
+    .test-card.success {
+      border-color: #4caf50;
+      background: #f0fff0;
+    }
+    .test-card.error {
+      border-color: #f44336;
+      background: #fff0f0;
+    }
+    .test-card h3 {
+      color: #333;
+      font-size: 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .test-card .description {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .test-card .endpoint {
+      background: #f5f5f5;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #555;
+      word-break: break-all;
+    }
+    .test-card .result {
+      margin-top: 12px;
+      padding: 10px;
+      background: white;
+      border-radius: 6px;
+      font-size: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-badge.pending {
+      background: #ffc107;
+      color: #333;
+    }
+    .status-badge.testing {
+      background: #2196f3;
+      color: white;
+    }
+    .status-badge.success {
+      background: #4caf50;
+      color: white;
+    }
+    .status-badge.error {
+      background: #f44336;
+      color: white;
+    }
+    .controls {
+      padding: 0 30px 30px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+    .summary {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .summary h2 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 15px;
+    }
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-card .number {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .stat-card .label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .stat-card.success .number { color: #4caf50; }
+    .stat-card.error .number { color: #f44336; }
+    .stat-card.pending .number { color: #ffc107; }
+    @media (max-width: 600px) {
+      .test-grid {
+        grid-template-columns: 1fr;
+      }
+      .controls {
+        flex-direction: column;
+      }
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 Netlify API 测试</h1>
+      <p>测试所有 API 端点是否正常工作</p>
+    </div>
+
+    <div class="test-grid">
+      <div class="test-card pending" id="test-fund" data-test="fund">
+        <h3>
+          <span class="status-badge pending" id="status-fund">待测试</span>
+          基金净值 API
+        </h3>
+        <div class="description">通过 Netlify Function 获取基金净值数据</div>
+        <div class="endpoint">GET /api/fund?code=501312</div>
+        <div class="result" id="result-fund">点击开始测试...</div>
+      </div>
+
+      <div class="test-card pending" id="test-tencent" data-test="tencent">
+        <h3>
+          <span class="status-badge pending" id="status-tencent">待测试</span>
+          腾讯股票 API
+        </h3>
+        <div class="description">通过 Netlify Function 获取基金价格数据</div>
+        <div class="endpoint">GET /api/tencent?code=501312</div>
+        <div class="result" id="result-tencent">点击开始测试...</div>
+      </div>
+
+      <div class="test-card pending" id="test-pingzhong" data-test="pingzhong">
+        <h3>
+          <span class="status-badge pending" id="status-pingzhong">待测试</span>
+          东财平层 API
+        </h3>
+        <div class="description">通过 Netlify Function 获取东财平层数据</div>
+        <div class="endpoint">GET /api/pingzhong?code=501312</div>
+        <div class="result" id="result-pingzhong">点击开始测试...</div>
+      </div>
+
+      <div class="test-card pending" id="test-fundinfo" data-test="fundinfo">
+        <h3>
+          <span class="status-badge pending" id="status-fundinfo">待测试</span>
+          基金信息 API
+        </h3>
+        <div class="description">通过 Netlify Function 获取基金信息</div>
+        <div class="endpoint">GET /api/fundinfo?code=501312</div>
+        <div class="result" id="result-fundinfo">点击开始测试...</div>
+      </div>
+
+      <div class="test-card pending" id="test-complete" data-test="complete">
+        <h3>
+          <span class="status-badge pending" id="status-complete">待测试</span>
+          完整数据获取
+        </h3>
+        <div class="description">测试完整的基金数据获取流程</div>
+        <div class="endpoint">综合测试所有 API</div>
+        <div class="result" id="result-complete">点击开始测试...</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" onclick="runAllTests()">运行所有测试</button>
+      <button class="btn btn-secondary" onclick="clearAllTests()">清除结果</button>
+    </div>
+
+    <div class="summary">
+      <h2>📊 测试统计</h2>
+      <div class="summary-stats">
+        <div class="stat-card success">
+          <div class="number" id="stat-success">0</div>
+          <div class="label">成功</div>
+        </div>
+        <div class="stat-card error">
+          <div class="number" id="stat-error">0</div>
+          <div class="label">失败</div>
+        </div>
+        <div class="stat-card pending">
+          <div class="number" id="stat-pending">5</div>
+          <div class="label">待测试</div>
+        </div>
+        <div class="stat-card">
+          <div class="number" id="stat-total">5</div>
+          <div class="label">总计</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const testFundCode = '501312';
+    let testResults = {
+      fund: null,
+      tencent: null,
+      pingzhong: null,
+      fundinfo: null,
+      complete: null
+    };
+
+    function updateTestStatus(testId, status, result = '') {
+      const card = document.getElementById(`test-${testId}`);
+      const badge = document.getElementById(`status-${testId}`);
+      const resultDiv = document.getElementById(`result-${testId}`);
+
+      card.className = `test-card ${status}`;
+      badge.className = `status-badge ${status}`;
+      badge.textContent = {
+        pending: '待测试',
+        testing: '测试中',
+        success: '成功',
+        error: '失败'
+      }[status];
+      resultDiv.textContent = result;
+
+      updateStats();
+    }
+
+    function updateStats() {
+      const success = Object.values(testResults).filter(r => r === true).length;
+      const error = Object.values(testResults).filter(r => r === false).length;
+      const pending = Object.values(testResults).filter(r => r === null).length;
+
+      document.getElementById('stat-success').textContent = success;
+      document.getElementById('stat-error').textContent = error;
+      document.getElementById('stat-pending').textContent = pending;
+    }
+
+    async function testEndpoint(name, url) {
+      updateTestStatus(name, 'testing', '正在请求...');
+      const startTime = Date.now();
+
+      try {
+        const response = await fetch(url);
+        const elapsed = Date.now() - startTime;
+
+        if (!response.ok) {
+          testResults[name] = false;
+          updateTestStatus(name, 'error',
+            `HTTP ${response.status}\n耗时: ${elapsed}ms\n\n请求失败，请检查网络和 API 配置`
+          );
+          return false;
+        }
+
+        const data = await response.json();
+
+        if (data.errCode === '0' || data.success) {
+          testResults[name] = true;
+          updateTestStatus(name, 'success',
+            `✅ 成功!\n\n耗时: ${elapsed}ms\n\n数据预览:\n${JSON.stringify(data, null, 2).substring(0, 300)}`
+          );
+          return true;
+        } else {
+          testResults[name] = false;
+          updateTestStatus(name, 'error',
+            `⚠️ API 返回错误\n\n耗时: ${elapsed}ms\n\n错误信息:\n${JSON.stringify(data, null, 2)}`
+          );
+          return false;
+        }
+      } catch (error) {
+        testResults[name] = false;
+        const elapsed = Date.now() - startTime;
+        updateTestStatus(name, 'error',
+          `❌ 请求异常\n\n耗时: ${elapsed}ms\n\n错误信息:\n${error.message}\n\n这可能是:\n1. CORS 跨域问题\n2. API 地址不正确\n3. Netlify Function 未正确部署\n4. 网络连接问题`
+        );
+        return false;
+      }
+    }
+
+    async function testFund() {
+      return await testEndpoint('fund', `/api/fund?code=${testFundCode}`);
+    }
+
+    async function testTencent() {
+      return await testEndpoint('tencent', `/api/tencent?code=${testFundCode}`);
+    }
+
+    async function testPingzhong() {
+      return await testEndpoint('pingzhong', `/api/pingzhong?code=${testFundCode}`);
+    }
+
+    async function testFundinfo() {
+      return await testEndpoint('fundinfo', `/api/fundinfo?code=${testFundCode}`);
+    }
+
+    async function testComplete() {
+      updateTestStatus('complete', 'testing', '正在测试完整流程...');
+      const startTime = Date.now();
+
+      try {
+        const results = {
+          fund: await fetch(`/api/fund?code=${testFundCode}`).then(r => r.ok),
+          tencent: await fetch(`/api/tencent?code=${testFundCode}`).then(r => r.ok),
+          pingzhong: await fetch(`/api/pingzhong?code=${testFundCode}`).then(r => r.ok),
+          fundinfo: await fetch(`/api/fundinfo?code=${testFundCode}`).then(r => r.ok)
+        };
+
+        const elapsed = Date.now() - startTime;
+        const successCount = Object.values(results).filter(Boolean).length;
+        const totalCount = Object.keys(results).length;
+
+        if (successCount === totalCount) {
+          testResults.complete = true;
+          updateTestStatus('complete', 'success',
+            `✅ 所有 API 正常工作!\n\n耗时: ${elapsed}ms\n\n测试结果:\n- 基金净值: ✅\n- 腾讯价格: ✅\n- 东财平层: ✅\n- 基金信息: ✅`
+          );
+        } else {
+          testResults.complete = false;
+          updateTestStatus('complete', 'error',
+            `⚠️ 部分 API 失败\n\n耗时: ${elapsed}ms\n\n成功率: ${successCount}/${totalCount}\n\n失败详情:\n- 基金净值: ${results.fund ? '✅' : '❌'}\n- 腾讯价格: ${results.tencent ? '✅' : '❌'}\n- 东财平层: ${results.pingzhong ? '✅' : '❌'}\n- 基金信息: ${results.fundinfo ? '✅' : '❌'}`
+          );
+        }
+
+        return successCount === totalCount;
+      } catch (error) {
+        testResults.complete = false;
+        updateTestStatus('complete', 'error',
+          `❌ 完整测试失败\n\n错误: ${error.message}\n\n请检查:\n1. 所有 Netlify Functions 是否正确部署\n2. netlify.toml 配置文件是否正确\n3. API 路由是否正确配置`
+        );
+        return false;
+      }
+    }
+
+    async function runAllTests() {
+      await Promise.all([
+        testFund(),
+        testTencent(),
+        testPingzhong(),
+        testFundinfo(),
+        testComplete()
+      ]);
+    }
+
+    function clearAllTests() {
+      testResults = {
+        fund: null,
+        tencent: null,
+        pingzhong: null,
+        fundinfo: null,
+        complete: null
+      };
+
+      ['fund', 'tencent', 'pingzhong', 'fundinfo', 'complete'].forEach(testId => {
+        updateTestStatus(testId, 'pending', '点击开始测试...');
+      });
+    }
+
+    updateStats();
+  </script>
+</body>
+</html>
