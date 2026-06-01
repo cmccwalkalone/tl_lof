@@ -46,8 +46,6 @@ function jsonp(url, callback) {
 }
 
 async function getFundDataByCode(code) {
-  apiLog('info', `获取基金数据: ${code}`);
-
   const marketCode = code.startsWith('5') ? `sh${code}` : `sz${code}`
   const priceUrl = TENCENT_URL + marketCode
 
@@ -55,58 +53,49 @@ async function getFundDataByCode(code) {
   let nav = 0, navName = '', jzrq = '', limit = '--', status = ''
 
   try {
-    apiLog('info', `请求价格: ${priceUrl}`);
-    const priceRes = await requestTencent(priceUrl)
+    // 🚀 并行请求所有API！
+    apiLog('info', `并行获取: ${code}`);
+    
+    const [priceRes, gzRes, infoRes] = await Promise.all([
+      requestTencent(priceUrl),
+      requestFundGZViaNetlify(code),
+      requestFundInfo(code)
+    ])
 
+    // 处理价格
     if (priceRes.success) {
       price = priceRes.price
       priceName = priceRes.name
       volume = priceRes.volume
-      apiLog('success', `价格获取成功: ${price}`);
-    } else {
-      apiLog('warning', `价格获取失败: ${code}`);
     }
 
-    apiLog('info', `请求净值: ${code}`);
-    const gzRes = await requestFundGZViaNetlify(code)
-
+    // 处理净值
     if (gzRes.success) {
       nav = gzRes.nav
       navName = gzRes.name
       jzrq = gzRes.jzrq
-      apiLog('success', `净值获取成功: ${nav}`);
     } else {
-      apiLog('warning', `Netlify净值获取失败，尝试东财...`);
-      await sleep(150)
+      // 如果Netlify失败，再试一下东财
       const pzRes = await requestPingzhong(code)
       if (pzRes.success) {
         nav = pzRes.nav
         navName = navName || pzRes.name
         jzrq = jzrq || pzRes.jzrq
-        apiLog('success', `东财净值获取成功: ${nav}`);
-      } else {
-        apiLog('error', `所有净值获取方式都失败: ${code}`);
       }
     }
 
-    apiLog('info', `请求基金信息: ${code}`);
-    const infoRes = await requestFundInfo(code)
+    // 处理基金信息
     if (infoRes.success) {
       status = infoRes.status || ''
       limit = infoRes.limit || '--'
-      apiLog('success', `基金信息获取成功: ${status}`);
-    } else {
-      apiLog('warning', `基金信息获取失败`);
     }
+
   } catch (e) {
-    apiLog('error', `异常: ${e.message}`);
-    console.error('获取基金数据失败:', code, e)
+    apiLog('error', `${code} 异常: ${e.message}`);
   }
 
   const premium = nav > 0 && price > 0 ? ((price - nav) / nav * 100) : 0
   const success = price > 0;
-
-  apiLog(success ? 'success' : 'warning', `基金 ${code} 完成: ${success ? '成功' : '失败'} (价格:${price > 0 ? price : '无'}, 净值:${nav > 0 ? nav : '无'})`);
 
   return {
     code: code,
@@ -127,79 +116,55 @@ async function getFundDataByCode(code) {
 }
 
 async function requestTencent(url) {
-  apiLog('info', `腾讯API: ${url}`);
-
   try {
     const code = url.split('=').pop();
     const apiUrl = `/api/tencent?code=${code}`;
-    apiLog('debug', `请求: ${apiUrl}`);
 
     const response = await fetch(apiUrl, {
       method: 'GET',
       mode: 'cors'
     })
 
-    apiLog('info', `响应状态: ${response.status}`);
-
     if (!response.ok) {
-      apiLog('error', `HTTP错误: ${response.status}`);
       return { success: false }
     }
 
     const data = await response.json()
-    apiLog('debug', `响应数据: ${JSON.stringify(data)}`);
 
     if (data.success) {
-      apiLog('success', `成功: ${data.price}`);
       return { name: data.name, price: data.price, volume: formatVolume(data.volume), success: true }
-    } else {
-      apiLog('error', `API返回失败: ${data.error || '未知错误'}`);
-      return { success: false }
     }
+    return { success: false }
   } catch (e) {
-    apiLog('error', `请求异常: ${e.message}`);
-    console.error('腾讯API请求失败:', e)
     return { success: false }
   }
 }
 
 async function requestFundGZViaNetlify(code) {
   const apiUrl = `/api/fund?code=${code}`;
-  apiLog('info', `Netlify Fund API: ${apiUrl}`);
 
   try {
-    apiLog('debug', `请求: ${apiUrl}`);
-
     const response = await fetch(apiUrl, {
       method: 'GET',
       mode: 'cors'
     })
 
-    apiLog('info', `响应状态: ${response.status}`);
-
     if (!response.ok) {
-      apiLog('error', `HTTP错误: ${response.status}`);
       return { success: false }
     }
 
     const data = await response.json()
-    apiLog('debug', `响应数据: ${JSON.stringify(data)}`);
 
     if (data.errCode === '0' || data.errCode === 0) {
-      apiLog('success', `成功: ${data.dwjz}`);
       return {
         name: data.name || '',
         nav: parseFloat(data.dwjz) || 0,
         jzrq: data.jzrq || '',
         success: true
       }
-    } else {
-      apiLog('error', `API返回错误: ${data.errMsg || '未知错误'}`);
-      return { success: false }
     }
+    return { success: false }
   } catch (e) {
-    apiLog('error', `请求异常: ${e.message}`);
-    console.error('Netlify Fund API请求失败:', e)
     return { success: false }
   }
 }
@@ -245,72 +210,48 @@ async function requestFundGZ(code) {
 
 async function requestPingzhong(code) {
   const apiUrl = `/api/pingzhong?code=${code}`;
-  apiLog('info', `东财平层API: ${apiUrl}`);
 
   try {
-    apiLog('debug', `请求: ${apiUrl}`);
-
     const response = await fetch(apiUrl, {
       method: 'GET',
       mode: 'cors'
     })
 
-    apiLog('info', `响应状态: ${response.status}`);
-
     if (!response.ok) {
-      apiLog('error', `HTTP错误: ${response.status}`);
       return { success: false }
     }
 
     const data = await response.json()
-    apiLog('debug', `响应数据: ${JSON.stringify(data)}`);
 
     if (data.success) {
-      apiLog('success', `成功: ${data.nav}`);
       return { name: data.name, nav: data.nav, jzrq: data.jzrq, success: true }
-    } else {
-      apiLog('error', `API返回失败: ${data.error || '未知错误'}`);
-      return { success: false }
     }
+    return { success: false }
   } catch (e) {
-    apiLog('error', `请求异常: ${e.message}`);
-    console.error('东财API请求失败:', e)
     return { success: false }
   }
 }
 
 async function requestFundInfo(code) {
   const apiUrl = `/api/fundinfo?code=${code}`;
-  apiLog('info', `基金信息API: ${apiUrl}`);
 
   try {
-    apiLog('debug', `请求: ${apiUrl}`);
-
     const response = await fetch(apiUrl, {
       method: 'GET',
       mode: 'cors'
     })
 
-    apiLog('info', `响应状态: ${response.status}`);
-
     if (!response.ok) {
-      apiLog('error', `HTTP错误: ${response.status}`);
       return { success: false }
     }
 
     const data = await response.json()
-    apiLog('debug', `响应数据: ${JSON.stringify(data)}`);
 
     if (data.success) {
-      apiLog('success', `成功: ${data.status || '无状态'}`);
       return { status: data.status, limit: data.limit, success: true }
-    } else {
-      apiLog('error', `API返回失败: ${data.error || '未知错误'}`);
-      return { success: false }
     }
+    return { success: false }
   } catch (e) {
-    apiLog('error', `请求异常: ${e.message}`);
-    console.error('基金信息API请求失败:', e)
     return { success: false }
   }
 }

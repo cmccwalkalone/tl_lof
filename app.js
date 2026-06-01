@@ -166,7 +166,16 @@ async function fetchData() {
     addLog('success', 'fetchAllFundData 完成');
 
     const totalItems = Object.values(data.categories).reduce((sum, cat) => sum + cat.items.length, 0);
+    addLog('info', `当前 Tab: ${state.currentTab}`);
     addLog('success', `获取到 ${totalItems} 条基金数据`);
+
+    // 详细显示获取到的数据
+    for (const [key, cat] of Object.entries(data.categories)) {
+      addLog('info', `${cat.name}: ${cat.items.length} 条`);
+      if (cat.items.length > 0) {
+        addLog('debug', `  示例: ${JSON.stringify(cat.items[0])}`);
+      }
+    }
 
     setCacheData(data)
     addLog('info', '数据已缓存');
@@ -174,6 +183,9 @@ async function fetchData() {
     state.allData = data.categories
     state.updateTime = data.updateTime
     state.currentData = data.categories[state.currentTab]?.items || []
+    
+    addLog('info', `当前 Tab 数据: ${state.currentData.length} 条`);
+    
     state.loading = false
     addLog('success', '界面更新完成');
 
