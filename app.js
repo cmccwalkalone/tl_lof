@@ -93,7 +93,17 @@ function getAllLogs() {
   return logMessages.map(l => `[${l.type.toUpperCase()}] [${l.timestamp}] ${l.message}`).join('\n');
 }
 
+// 暴露到 window 以便 api.js 调用
+window.addLog = addLog;
+
 document.addEventListener('DOMContentLoaded', () => {
+  // 立即显示日志面板
+  const logPanel = document.getElementById('logPanel');
+  if (logPanel) {
+    logPanel.style.display = 'block';
+    logPanelVisible = true;
+  }
+  
   addLog('info', '页面加载成功，开始初始化...');
   initApp();
 });
@@ -341,6 +351,7 @@ function showToast(message) {
 
 function setupEventListeners() {
   document.getElementById('refreshBtn').addEventListener('click', refreshData)
+  document.getElementById('logToggleBtn').addEventListener('click', toggleLogPanel)
   document.getElementById('settingsBtn').addEventListener('click', openSettings)
   document.getElementById('closeDetail').addEventListener('click', closeDetail)
   document.getElementById('closeSettings').addEventListener('click', closeSettings)
