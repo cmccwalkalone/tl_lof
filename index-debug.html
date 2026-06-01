@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>LOF基金套利 - 日志版</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px 12px 0 0;
+      margin-bottom: 2px;
+    }
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .header .subtitle {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .main-content {
+      background: white;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .log-panel {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 500px;
+      overflow-y: auto;
+      border-radius: 0 0 12px 12px;
+    }
+    .log-entry {
+      margin-bottom: 8px;
+      padding: 8px;
+      background: #252526;
+      border-radius: 4px;
+      border-left: 3px solid #666;
+    }
+    .log-entry.error {
+      border-left-color: #f44336;
+      background: #2d1f1f;
+    }
+    .log-entry.success {
+      border-left-color: #4caf50;
+      background: #1f2d1f;
+    }
+    .log-entry.warning {
+      border-left-color: #ffc107;
+      background: #2d2d1f;
+    }
+    .log-entry.info {
+      border-left-color: #2196f3;
+      background: #1f2d2d;
+    }
+    .log-timestamp {
+      color: #888;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .log-type {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    .log-type.error { background: #f44336; color: white; }
+    .log-type.success { background: #4caf50; color: white; }
+    .log-type.warning { background: #ffc107; color: #333; }
+    .log-type.info { background: #2196f3; color: white; }
+    .log-type.debug { background: #9c27b0; color: white; }
+    .log-message {
+      color: #d4d4d4;
+      line-height: 1.6;
+      word-break: break-all;
+    }
+    .log-details {
+      margin-top: 8px;
+      padding: 8px;
+      background: #0d0d0d;
+      border-radius: 4px;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .log-details pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #9cdcfe;
+    }
+    .controls {
+      padding: 20px;
+      background: #fafafa;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+    .btn-danger {
+      background: #f44336;
+      color: white;
+    }
+    .stats {
+      padding: 20px;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+    .stat-item {
+      text-align: center;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    .stat-number {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .stat-item.error .stat-number { color: #f44336; }
+    .stat-item.success .stat-number { color: #4caf50; }
+    .stat-item.warning .stat-number { color: #ffc107; }
+    .stat-item.info .stat-number { color: #2196f3; }
+    .data-preview {
+      padding: 20px;
+      background: white;
+    }
+    .data-preview h3 {
+      margin-bottom: 15px;
+      color: #333;
+    }
+    .fund-list {
+      display: grid;
+      gap: 10px;
+    }
+    .fund-item {
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .fund-item.success { border-left-color: #4caf50; }
+    .fund-item.error { border-left-color: #f44336; }
+    .fund-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .fund-name {
+      font-weight: 600;
+      font-size: 16px;
+      color: #333;
+    }
+    .fund-code {
+      font-size: 14px;
+      color: #666;
+      font-family: monospace;
+    }
+    .fund-data {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .fund-data-item {
+      font-size: 13px;
+    }
+    .fund-data-label {
+      color: #888;
+      margin-right: 5px;
+    }
+    .fund-data-value {
+      color: #333;
+      font-weight: 600;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+    @media (max-width: 600px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .fund-data {
+        grid-template-columns: 1fr;
+      }
+      .controls {
+        flex-direction: column;
+      }
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔍 LOF基金套利 - 日志诊断版</h1>
+    <div class="subtitle">查看详细日志信息，诊断数据加载问题</div>
+  </div>
+
+  <div class="main-content">
+    <div class="controls">
+      <button class="btn btn-primary" onclick="loadDataWithLogs()">
+        🔄 重新加载数据
+      </button>
+      <button class="btn btn-secondary" onclick="clearLogs()">
+        🗑️ 清除日志
+      </button>
+      <button class="btn btn-secondary" onclick="testApis()">
+        🧪 测试所有API
+      </button>
+      <button class="btn btn-danger" onclick="clearCache()">
+        🗑️ 清除缓存
+      </button>
+    </div>
+
+    <div class="stats">
+      <div class="stats-grid">
+        <div class="stat-item info">
+          <div class="stat-number" id="totalLogs">0</div>
+          <div class="stat-label">日志总数</div>
+        </div>
+        <div class="stat-item success">
+          <div class="stat-number" id="successCount">0</div>
+          <div class="stat-label">成功</div>
+        </div>
+        <div class="stat-item error">
+          <div class="stat-number" id="errorCount">0</div>
+          <div class="stat-label">错误</div>
+        </div>
+        <div class="stat-item warning">
+          <div class="stat-number" id="warningCount">0</div>
+          <div class="stat-label">警告</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="data-preview">
+      <h3>📊 获取到的数据</h3>
+      <div id="fundData" class="fund-list">
+        <div class="empty-state">点击"重新加载数据"按钮开始诊断...</div>
+      </div>
+    </div>
+
+    <div class="log-panel" id="logPanel">
+      <div class="log-entry info">
+        <div class="log-timestamp">等待开始...</div>
+        <div class="log-message">
+          <span class="log-type info">INFO</span>
+          点击"重新加载数据"按钮开始诊断
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const logs = [];
+    const fundCategories = {
+      europe_america: {
+        name: '欧美指数',
+        funds: ['501312', '501300', '501225']
+      },
+      commodity: {
+        name: '商品',
+        funds: ['165513', '161815']
+      },
+      asia: {
+        name: '亚洲市场',
+        funds: ['160322', '501301']
+      }
+    };
+
+    function addLog(type, message, details = null) {
+      const timestamp = new Date().toLocaleTimeString();
+      const log = { type, message, details, timestamp };
+      logs.push(log);
+
+      const logPanel = document.getElementById('logPanel');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `
+        <div class="log-timestamp">${timestamp}</div>
+        <div class="log-message">
+          <span class="log-type ${type}">${type.toUpperCase()}</span>
+          ${message}
+        </div>
+        ${details ? `<div class="log-details"><pre>${JSON.stringify(details, null, 2)}</pre></div>` : ''}
+      `;
+      logPanel.insertBefore(entry, logPanel.firstChild);
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('totalLogs').textContent = logs.length;
+      document.getElementById('successCount').textContent = logs.filter(l => l.type === 'success').length;
+      document.getElementById('errorCount').textContent = logs.filter(l => l.type === 'error').length;
+      document.getElementById('warningCount').textContent = logs.filter(l => l.type === 'warning').length;
+    }
+
+    function clearLogs() {
+      logs.length = 0;
+      document.getElementById('logPanel').innerHTML = '';
+      addLog('info', '日志已清除');
+      updateStats();
+    }
+
+    function clearCache() {
+      localStorage.removeItem('fund_data');
+      localStorage.removeItem('fund_categories');
+      addLog('success', '缓存已清除');
+      location.reload();
+    }
+
+    async function testApi(name, url) {
+      addLog('info', `正在测试: ${name}`, { url });
+
+      const startTime = Date.now();
+      try {
+        addLog('debug', `发起请求: ${url}`);
+
+        const response = await fetch(url, {
+          method: 'GET',
+          mode: 'cors'
+        });
+
+        const elapsed = Date.now() - startTime;
+        addLog('debug', `收到响应: HTTP ${response.status}`, { elapsed: `${elapsed}ms` });
+
+        if (!response.ok) {
+          addLog('error', `${name} 请求失败`, {
+            status: response.status,
+            statusText: response.statusText
+          });
+          return { success: false, error: `HTTP ${response.status}` };
+        }
+
+        const text = await response.text();
+        addLog('debug', `响应数据 (${text.length} 字节)`, { preview: text.substring(0, 200) });
+
+        try {
+          const data = JSON.parse(text);
+          addLog('success', `${name} 测试成功`, data);
+          return { success: true, data };
+        } catch (e) {
+          addLog('warning', `${name} 返回的不是 JSON`, { error: e.message, preview: text.substring(0, 200) });
+          return { success: false, error: 'Not JSON', raw: text };
+        }
+      } catch (e) {
+        const elapsed = Date.now() - startTime;
+        addLog('error', `${name} 请求异常`, {
+          error: e.message,
+          name: e.name,
+          elapsed: `${elapsed}ms`
+        });
+        return { success: false, error: e.message };
+      }
+    }
+
+    async function testApis() {
+      addLog('info', '开始测试所有 API...');
+      const fundCode = '501312';
+
+      const results = {};
+
+      results.fund = await testApi('Fund API (净值)', `/api/fund?code=${fundCode}`);
+      await sleep(300);
+
+      results.tencent = await testApi('Tencent API (价格)', `/api/tencent?code=${fundCode}`);
+      await sleep(300);
+
+      results.pingzhong = await testApi('Pingzhong API (东财)', `/api/pingzhong?code=${fundCode}`);
+      await sleep(300);
+
+      results.fundinfo = await testApi('FundInfo API (信息)', `/api/fundinfo?code=${fundCode}`);
+
+      const successCount = Object.values(results).filter(r => r.success).length;
+      const totalCount = Object.keys(results).length;
+
+      addLog('success', `API 测试完成: ${successCount}/${totalCount} 成功`, results);
+
+      if (successCount === 0) {
+        addLog('error', '所有 API 都失败了！请检查:', {
+          '1': 'Netlify Functions 是否正确部署',
+          '2': 'netlify.toml 路由配置是否正确',
+          '3': '查看 Netlify Functions 日志'
+        });
+      }
+    }
+
+    async function loadDataWithLogs() {
+      addLog('info', '开始加载数据...');
+      clearLogs();
+
+      addLog('info', '获取基金分类');
+      const categories = getCustomCategories();
+      addLog('success', '获取到分类', Object.keys(categories));
+
+      addLog('info', '准备获取基金数据...');
+
+      const fundCode = '501312';
+      addLog('info', `测试单个基金: ${fundCode}`);
+
+      const results = {
+        price: null,
+        nav: null,
+        info: null
+      };
+
+      addLog('info', '步骤1: 获取基金价格 (腾讯API)');
+      try {
+        const priceRes = await testApi('腾讯价格', `/api/tencent?code=${fundCode}`);
+        if (priceRes.success && priceRes.data.success) {
+          results.price = priceRes.data;
+          addLog('success', `获取到价格: ${results.price.price}`, results.price);
+        } else {
+          addLog('warning', '价格获取失败，尝试其他方式...');
+        }
+      } catch (e) {
+        addLog('error', `价格获取异常: ${e.message}`);
+      }
+
+      await sleep(500);
+
+      addLog('info', '步骤2: 获取基金净值 (天天基金)');
+      try {
+        const navRes = await testApi('天天基金净值', `/api/fund?code=${fundCode}`);
+        if (navRes.success && navRes.data.errCode === '0') {
+          results.nav = navRes.data;
+          addLog('success', `获取到净值: ${results.nav.dwjz}`, results.nav);
+        } else {
+          addLog('warning', '天天基金净值获取失败，尝试东财...');
+          await sleep(300);
+
+          const pzRes = await testApi('东财平层净值', `/api/pingzhong?code=${fundCode}`);
+          if (pzRes.success && pzRes.data.success) {
+            results.nav = pzRes.data;
+            addLog('success', `通过东财获取到净值: ${results.nav.nav}`, results.nav);
+          }
+        }
+      } catch (e) {
+        addLog('error', `净值获取异常: ${e.message}`);
+      }
+
+      await sleep(500);
+
+      addLog('info', '步骤3: 获取基金信息 (状态、限额等)');
+      try {
+        const infoRes = await testApi('基金信息', `/api/fundinfo?code=${fundCode}`);
+        if (infoRes.success && infoRes.data.success) {
+          results.info = infoRes.data;
+          addLog('success', '获取到基金信息', results.info);
+        }
+      } catch (e) {
+        addLog('warning', `基金信息获取失败: ${e.message}`);
+      }
+
+      addLog('info', '数据汇总');
+      displayResults(results);
+    }
+
+    function displayResults(results) {
+      const container = document.getElementById('fundData');
+
+      if (!results.price && !results.nav) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>❌ 未能获取到任何数据</p>
+            <p>请查看上方日志了解详情</p>
+          </div>
+        `;
+        addLog('error', '数据加载失败', {
+          reason: '价格和净值都获取失败',
+          '可能原因': [
+            '1. Netlify Functions 未部署',
+            '2. API 路由配置错误',
+            '3. 外部 API 服务不可用',
+            '4. CORS 跨域问题'
+          ],
+          '解决方案': '请查看上方的详细日志和错误信息'
+        });
+        return;
+      }
+
+      const premium = calculatePremium(results.price?.price, results.nav?.nav || results.nav?.dwjz);
+
+      container.innerHTML = `
+        <div class="fund-item success">
+          <div class="fund-header">
+            <div class="fund-name">${results.nav?.name || results.price?.name || '基金'}</div>
+            <div class="fund-code">${results.nav?.fundcode || '501312'}</div>
+          </div>
+          <div class="fund-data">
+            <div class="fund-data-item">
+              <span class="fund-data-label">净值:</span>
+              <span class="fund-data-value">${results.nav?.nav || results.nav?.dwjz || '--'}</span>
+            </div>
+            <div class="fund-data-item">
+              <span class="fund-data-label">价格:</span>
+              <span class="fund-data-value">${results.price?.price || '--'}</span>
+            </div>
+            <div class="fund-data-item">
+              <span class="fund-data-label">溢价率:</span>
+              <span class="fund-data-value" style="color: ${premium >= 0 ? '#f44336' : '#4caf50'}">
+                ${premium !== null ? (premium >= 0 ? '+' : '') + premium.toFixed(2) + '%' : '--'}
+              </span>
+            </div>
+            <div class="fund-data-item">
+              <span class="fund-data-label">状态:</span>
+              <span class="fund-data-value">${results.info?.status || '--'}</span>
+            </div>
+            <div class="fund-data-item">
+              <span class="fund-data-label">限额:</span>
+              <span class="fund-data-value">${results.info?.limit || '--'}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      addLog('success', '数据加载完成', {
+        name: results.nav?.name || results.price?.name,
+        price: results.price?.price,
+        nav: results.nav?.nav || results.nav?.dwjz,
+        premium: premium !== null ? `${premium.toFixed(2)}%` : null,
+        status: results.info?.status
+      });
+    }
+
+    function calculatePremium(price, nav) {
+      if (!price || !nav) return null;
+      const p = parseFloat(price);
+      const n = parseFloat(nav);
+      if (isNaN(p) || isNaN(n) || n === 0) return null;
+      return ((p - n) / n) * 100;
+    }
+
+    function getCustomCategories() {
+      try {
+        const stored = localStorage.getItem('fund_categories');
+        if (stored) {
+          return JSON.parse(stored);
+        }
+        return fundCategories;
+      } catch (e) {
+        return fundCategories;
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    window.onload = function() {
+      addLog('info', '页面加载完成');
+      addLog('info', '点击"重新加载数据"按钮开始诊断');
+      addLog('info', '或点击"测试所有API"单独测试各个接口');
+    };
+  </script>
+</body>
+</html>
