@@ -334,7 +334,7 @@ async function fetchBatch(codes) {
 }
 
 async function fetchAllFundData() {
-  apiLog('info', '开始获取所有基金数据');
+  apiLog('info', '🚀 开始并行获取所有基金数据');
 
   const categories = getCustomCategories()
   const result = {
@@ -342,37 +342,41 @@ async function fetchAllFundData() {
     categories: {}
   }
 
-  const BATCH_SIZE = 5
-  const DELAY_BETWEEN_BATCHES = 500
-
+  // 收集所有基金代码
+  const allFundTasks = []
+  const allCategoryKeys = Object.keys(categories)
+  
+  // 并行获取所有基金！
   for (const [key, category] of Object.entries(categories)) {
-    apiLog('info', `处理分类: ${category.name} (${category.funds.length}个基金)`);
-    result.categories[key] = { name: category.name, items: [] }
-
-    const batches = []
-    for (let i = 0; i < category.funds.length; i += BATCH_SIZE) {
-      batches.push(category.funds.slice(i, i + BATCH_SIZE))
-    }
-
-    apiLog('info', `分为 ${batches.length} 批处理`);
-
-    for (let i = 0; i < batches.length; i++) {
-      apiLog('info', `处理第 ${i + 1}/${batches.length} 批`);
-      const batchResults = await fetchBatch(batches[i])
-      const successCount = batchResults.filter(d => d.success).length;
-      apiLog(successCount > 0 ? 'success' : 'warning', `第 ${i + 1} 批完成: ${successCount}/${batches[i].length} 成功`);
-
-      result.categories[key].items.push(...batchResults.filter(d => d.success))
-
-      if (i < batches.length - 1) {
-        apiLog('info', `等待 ${DELAY_BETWEEN_BATCHES}ms...`);
-        await sleep(DELAY_BETWEEN_BATCHES)
-      }
+    for (const code of category.funds) {
+      allFundTasks.push({
+        categoryKey: key,
+        categoryName: category.name,
+        code: code,
+        promise: getFundDataByCode(code)
+      })
     }
   }
 
-  const totalCount = Object.values(result.categories).reduce((sum, cat) => sum + cat.items.length, 0);
-  apiLog('success', `全部完成! 共获取 ${totalCount} 条数据`);
+  apiLog('info', `并行获取 ${allFundTasks.length} 个基金数据`);
+
+  // 同时等待所有请求完成
+  const results = await Promise.all(allFundTasks.map(task => task.promise))
+
+  // 按分类整理结果
+  for (const key of allCategoryKeys) {
+    result.categories[key] = { name: categories[key].name, items: [] }
+  }
+
+  let successCount = 0
+  allFundTasks.forEach((task, idx) => {
+    if (results[idx].success) {
+      result.categories[task.categoryKey].items.push(results[idx])
+      successCount++
+    }
+  })
+
+  apiLog('success', `🎉 全部完成! 成功 ${successCount}/${allFundTasks.length} 个基金`);
 
   return result
 }
