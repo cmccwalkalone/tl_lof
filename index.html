@@ -102,6 +102,18 @@
     <span id="toastMessage"></span>
   </div>
 
+  <div id="logPanel" class="log-panel" style="display:none;">
+    <div class="log-header" style="background:#667eea;color:white;padding:15px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <strong>🔍 加载日志</strong>
+        <small style="margin-left:10px;opacity:0.8;">（点击复制错误信息）</small>
+      </div>
+      <button onclick="toggleLogPanel()" style="background:white;color:#667eea;border:none;padding:8px 15px;border-radius:5px;cursor:pointer;font-weight:bold;">收起</button>
+    </div>
+    <div id="logContent" class="log-content" style="background:#1e1e1e;color:#d4d4d4;padding:15px;max-height:400px;overflow-y:auto;font-family:'Courier New',monospace;font-size:13px;line-height:1.6;">
+    </div>
+  </div>
+
   <script src="data.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>

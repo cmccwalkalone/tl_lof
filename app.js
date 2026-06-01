@@ -13,32 +13,111 @@ let settingsState = {
   currentFunds: []
 }
 
+let logPanelVisible = false;
+let logMessages = [];
+
+function addLog(type, message) {
+  const timestamp = new Date().toLocaleTimeString();
+  const logEntry = { type, message, timestamp };
+  logMessages.push(logEntry);
+
+  console.log(`[${type}] ${message}`);
+
+  const logContent = document.getElementById('logContent');
+  if (logContent) {
+    const logDiv = document.createElement('div');
+    logDiv.style.cssText = 'margin-bottom:8px;padding:8px;border-radius:4px;';
+
+    let bgColor, borderColor, icon;
+    switch(type) {
+      case 'error':
+        bgColor = '#2d1f1f';
+        borderColor = '#f44336';
+        icon = '❌';
+        break;
+      case 'success':
+        bgColor = '#1f2d1f';
+        borderColor = '#4caf50';
+        icon = '✅';
+        break;
+      case 'warning':
+        bgColor = '#2d2d1f';
+        borderColor = '#ffc107';
+        icon = '⚠️';
+        break;
+      case 'info':
+        bgColor = '#1f2d2d';
+        borderColor = '#2196f3';
+        icon = 'ℹ️';
+        break;
+      default:
+        bgColor = '#252526';
+        borderColor = '#666';
+        icon = '📝';
+    }
+
+    logDiv.style.background = bgColor;
+    logDiv.style.borderLeft = `4px solid ${borderColor}`;
+    logDiv.innerHTML = `<div style="color:#888;font-size:11px;">${timestamp}</div><div>${icon} ${message}</div>`;
+
+    logContent.insertBefore(logDiv, logContent.firstChild);
+
+    while (logContent.children.length > 100) {
+      logContent.removeChild(logContent.lastChild);
+    }
+  }
+
+  if (!logPanelVisible) {
+    const logPanel = document.getElementById('logPanel');
+    if (logPanel) {
+      logPanel.style.display = 'block';
+      logPanelVisible = true;
+    }
+  }
+}
+
+function toggleLogPanel() {
+  const logPanel = document.getElementById('logPanel');
+  if (logPanel) {
+    if (logPanelVisible) {
+      logPanel.style.display = 'none';
+      logPanelVisible = false;
+    } else {
+      logPanel.style.display = 'block';
+      logPanelVisible = true;
+    }
+  }
+}
+
+function getAllLogs() {
+  return logMessages.map(l => `[${l.type.toUpperCase()}] [${l.timestamp}] ${l.message}`).join('\n');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('===== app.js 加载成功 =====')
-  initApp()
-})
+  addLog('info', '页面加载成功，开始初始化...');
+  initApp();
+});
 
 function initApp() {
-  console.log('===== initApp 被调用 =====')
+  addLog('info', '初始化应用...');
   loadData()
   setupEventListeners()
   setupPullToRefresh()
 }
 
 function loadData() {
-  console.log('===== loadData 被调用 =====')
+  addLog('info', '加载数据...');
 
   const cachedData = getCacheData()
-  console.log('缓存数据:', cachedData)
+  addLog('info', `读取缓存: ${cachedData.updateTime || '无缓存'}`);
 
   const categories = getCustomCategories()
-  console.log('分类数据:', categories)
+  addLog('info', `获取到 ${Object.keys(categories).length} 个分类`);
 
   const categoryList = Object.entries(categories).map(([key, value]) => ({
     key,
     name: value.name
   }))
-  console.log('分类列表:', categoryList)
 
   const firstTab = categoryList[0]?.key || 'europe_america'
 
@@ -51,42 +130,45 @@ function loadData() {
     loading: false
   }
 
+  addLog('success', '初始化完成，准备刷新数据...');
   render()
   fetchData()
 }
 
 async function fetchData() {
-  console.log('===== fetchData 被调用, loading:', state.loading)
+  addLog('info', '开始获取数据...');
 
   if (state.loading) {
-    console.log('正在加载中，跳过')
+    addLog('warning', '正在加载中，跳过重复请求');
     return
   }
 
   state.loading = true
   render()
-  console.log('设置loading为true')
+  addLog('info', '显示加载状态');
 
   try {
-    console.log('===== 开始调用 fetchAllFundData =====')
+    addLog('info', '调用 fetchAllFundData()...');
     const data = await fetchAllFundData()
-    console.log('===== fetchAllFundData 返回 =====')
-    console.log('获取到的数据:', JSON.stringify(data, null, 2))
+    addLog('success', 'fetchAllFundData 完成');
+
+    const totalItems = Object.values(data.categories).reduce((sum, cat) => sum + cat.items.length, 0);
+    addLog('success', `获取到 ${totalItems} 条基金数据`);
 
     setCacheData(data)
-    console.log('数据已缓存')
+    addLog('info', '数据已缓存');
 
     state.allData = data.categories
     state.updateTime = data.updateTime
     state.currentData = data.categories[state.currentTab]?.items || []
     state.loading = false
-    console.log('界面已更新')
+    addLog('success', '界面更新完成');
 
     showToast('数据已更新')
     render()
   } catch (e) {
-    console.error('===== 获取数据失败 =====')
-    console.error('错误:', e)
+    addLog('error', `获取数据失败: ${e.message}`);
+    console.error('获取数据失败:', e)
     showToast('获取数据失败')
     state.loading = false
     render()
@@ -94,8 +176,11 @@ async function fetchData() {
 }
 
 function refreshData() {
-  console.log('===== refreshData 被调用 =====')
-  if (state.loading) return
+  addLog('info', '用户点击刷新按钮');
+  if (state.loading) {
+    addLog('warning', '正在加载中，请稍候');
+    return
+  }
   fetchData()
 }
 
